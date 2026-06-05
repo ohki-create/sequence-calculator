@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>シーケンス反応液 計算ツール (Sequence Calculator)</title>
+    <style>
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 20px; background-color: #f4f7f6; color: #333; }
+        
+        /* コンテナの共通スタイル */
+        .container { margin: 0 auto; background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .single-container { max-width: 450px; }
+        .multi-container { max-width: 1050px; }
+        
+        /* 見出し周りのスタイル */
+        .header-container { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 20px; }
+        h2 { font-size: 1.4em; text-align: center; color: #2c3e50; margin: 0; padding: 0; border: none; }
+        .header-container h2 { text-align: left; }
+        .single-container h2 { border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 20px; }
+        
+        label { font-weight: bold; font-size: 0.9em; display: block; margin-top: 15px; margin-bottom: 5px; color: #2c3e50;}
+        select, input[type="text"], input[type="number"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 1em; box-sizing: border-box;}
+        input[type="text"]:focus, input[type="number"]:focus { border-color: #3498db; outline: none; box-shadow: 0 0 5px rgba(52, 152, 219, 0.3); }
+        
+        button { font-weight: bold; cursor: pointer; transition: background 0.3s; border: none; border-radius: 5px; color: white; }
+        .btn-main { padding: 12px 20px; font-size: 1.05em; background: #3498db; width: 100%; margin-top: 25px; }
+        .btn-main:hover { background: #2980b9; }
+        
+        /* 複数画面用のボタン */
+        .btn-action { padding: 10px 20px; font-size: 1em; }
+        .btn-print { background: #16a085; }
+        .btn-print:hover { background: #1abc9c; }
+        .btn-clear { background: #e74c3c; }
+        .btn-clear:hover { background: #c0392b; }
+        .btn-back-small { background: #95a5a6; padding: 6px 12px; font-size: 0.85em; border-radius: 4px; margin-top: 5px;}
+        .btn-back-small:hover { background: #7f8c8d; }
+
+        /* 複数サンプル画面用のコントロールエリア */
+        .controls { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; background: #e8f6f3; padding: 15px; border-radius: 8px;}
+        .controls-left { flex: 1; min-width: 300px; }
+        .controls-right { display: flex; gap: 10px; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background-color: #fff; }
+        th, td { border: 1px solid #ddd; padding: 8px 5px; text-align: center; vertical-align: middle; }
+        th { background-color: #34495e; color: white; position: sticky; top: 0; font-size: 0.9em;}
+        
+        /* 8連チューブの区切り線 */
+        tr:nth-child(8n) td { border-bottom: 3px solid #2c3e50; }
+        
+        /* テーブル内の入力枠 */
+        table input[type="text"] { width: 130px; padding: 6px; font-size: 0.9em; }
+        table input[type="number"] { width: 80px; padding: 6px; text-align: right; font-size: 0.9em; }
+
+        .small-text { font-size: 0.75em; color: #7f8c8d; line-height: 1.4; }
+        .error { color: #e74c3c; font-weight: bold; font-size: 0.85em; }
+        .ideal { font-weight: bold; color: #d35400; background-color: #fdf2e9; font-size: 1.1em;}
+        .result-box { margin-top: 25px; padding: 20px; background: #e8f6f3; border-left: 5px solid #1abc9c; border-radius: 4px; }
+
+        /* 印刷時のスタイル設定 */
+        @media print {
+            body { background-color: white; padding: 0; }
+            .container { box-shadow: none; padding: 0; margin: 0; max-width: 100%; }
+            .btn-main, .controls-right, .btn-back-small { display: none !important; }
+            input { border: none !important; background: transparent !important; }
+            table input { text-align: center; }
+            th { background-color: #ddd !important; color: black !important; }
+            .ideal { background-color: transparent !important; color: black; }
+            @page { margin: 1cm; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="single-view" class="container single-container">
+    <h2>シーケンス反応液 計算<br><span style="font-size: 0.6em; color: #7f8c8d;">(Simple Calculator)</span></h2>
+    
+    <label for="single_templateType">テンプレートDNAの種類</label>
+    <select id="single_templateType" onchange="calculateSingle()">
+        <option value="plasmid">プラスミド 450-900ng</option>
+        <option value="pcr1">PCR産物 150-200bp (3-9ng)</option>
+        <option value="pcr2">PCR産物 200-500bp (9-30ng)</option>
+        <option value="pcr3">PCR産物 500-1,000bp (15-60ng)</option>
+        <option value="pcr4">PCR産物 1,000-2,000bp (30-120ng)</option>
+        <option value="pcr5">PCR産物 2,000bp以上 (60-150ng)</option>
+    </select>
+
+    <label for="single_concentration">濃度 X (ng/μL)</label>
+    <input type="number" id="single_concentration" step="0.1" placeholder="例: 50.5" oninput="calculateSingle()">
+
+    <div class="result-box" id="single_resultArea" style="display:none;">
+        <h3 style="color: #d35400; text-align: center; margin-top: 0; font-size: 1.1em;">推奨分注量 (Ideal)</h3>
+        <p style="font-size: 1.3em; text-align: center; margin: 10px 0;"><strong>cDNA: <span id="single_ideal_cdna"></span> μL</strong></p>
+        <p style="font-size: 1.3em; text-align: center; margin: 10px 0;"><strong>H<sub>2</sub>O: <span id="single_ideal_h2o"></span> μL</strong></p>
+        
+        <hr style="border: 0; border-top: 1px solid #ccc; margin: 15px 0;">
+        <p class="small-text" style="text-align: center; font-size: 0.85em;">
+            【許容範囲】 cDNA: <span id="single_range_cdna"></span> μL &nbsp;/&nbsp; H<sub>2</sub>O: <span id="single_range_h2o"></span> μL
+        </p>
+        <p class="small-text" style="text-align: center; font-size: 0.85em; margin-top: 8px;">(プライマー: 1.0 μL / 全量: 21.0 μL)</p>
+    </div>
+
+    <button class="btn-main" onclick="switchView('multi')">複数サンプル画面へ (8連チューブ対応) ➔</button>
+</div>
+
+
+<div id="multi-view" class="container multi-container" style="display:none;">
+    
+    <div class="header-container">
+        <h2>複数サンプル シーケンス計算<br><span style="font-size: 0.6em; color: #7f8c8d;">(Multi Sample Calculator)</span></h2>
+        <button class="btn-back-small" onclick="switchView('single')">⬅ 単一計算へ戻る</button>
+    </div>
+    
+    <div class="controls">
+        <div class="controls-left">
+            <label style="margin-top:0;">テンプレートDNAの種類</label>
+            <select id="multi_templateType" onchange="calculateAll()">
+                <option value="plasmid">プラスミド 450-900ng</option>
+                <option value="pcr1">PCR産物 150-200bp (3-9ng)</option>
+                <option value="pcr2">PCR産物 200-500bp (9-30ng)</option>
+                <option value="pcr3">PCR産物 500-1,000bp (15-60ng)</option>
+                <option value="pcr4">PCR産物 1,000-2,000bp (30-120ng)</option>
+                <option value="pcr5">PCR産物 2,000bp以上 (60-150ng)</option>
+            </select>
+        </div>
+        <div class="controls-right">
+            <button class="btn-action btn-clear" onclick="clearAll()">クリア</button>
+            <button class="btn-action btn-print" onclick="window.print()">印刷</button>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Sample</th>
+                <th>解析DNA名<br>(DNA Name)</th>
+                <th>プライマー名<br>(Primer Name)</th>
+                <th>濃度<br>(Conc.)<br>ng/μL</th>
+                <th>許容範囲<br>(Tolerance)<br><span style="font-size: 0.8em; font-weight: normal;">cDNA / H<sub>2</sub>O</span></th>
+                <th class="ideal">理想 cDNA<br>μL</th>
+                <th class="ideal">理想 H<sub>2</sub>O<br>μL</th>
+            </tr>
+        </thead>
+        <tbody id="table-body">
+            </tbody>
+    </table>
+</div>
+
+
+<script>
+    // テンプレートDNAのデータ定義
+    const templateData = {
+        "plasmid": { min: 450, max: 900, mid: 675 },
+        "pcr1": { min: 3, max: 9, mid: 6 },
+        "pcr2": { min: 9, max: 30, mid: 19.5 },
+        "pcr3": { min: 15, max: 60, mid: 37.5 },
+        "pcr4": { min: 30, max: 120, mid: 75 },
+        "pcr5": { min: 60, max: 150, mid: 105 }
+    };
+
+    // 画面ロード時の初期化
+    window.onload = function() {
+        generateTable();
+    };
+
+    // 画面切り替え機能
+    function switchView(view) {
+        if (view === 'multi') {
+            document.getElementById('single-view').style.display = 'none';
+            document.getElementById('multi-view').style.display = 'block';
+            document.getElementById('multi_templateType').value = document.getElementById('single_templateType').value;
+            calculateAll();
+        } else {
+            document.getElementById('single-view').style.display = 'block';
+            document.getElementById('multi-view').style.display = 'none';
+            document.getElementById('single_templateType').value = document.getElementById('multi_templateType').value;
+            calculateSingle();
+        }
+    }
+
+    // 計算のコアロジック（単一・複数共通）
+    function getCalcResult(conc, templateKey) {
+        const tpl = templateData[templateKey];
+        if (isNaN(conc) || conc <= 0) return null;
+
+        let v_min = tpl.min / conc;
+        let v_max = tpl.max / conc;
+        let v_mid = tpl.mid / conc;
+
+        if (v_min > 20) return { error: true, message: "濃度不足" };
+
+        let effective_v_max = Math.min(v_max, 20);
+        let ro_min = 20 - effective_v_max;
+        let ro_max = 20 - v_min;
+
+        let ideal_cDNA = v_mid; 
+        let startInt = Math.ceil(v_min);
+        let endInt = Math.floor(effective_v_max);
+        
+        if (startInt <= endInt) {
+            let bestInt = startInt;
+            let minDiff = Infinity;
+            for (let k = startInt; k <= endInt; k++) {
+                let diff = Math.abs(k - v_mid);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    bestInt = k;
+                }
+            }
+            ideal_cDNA = bestInt;
+        }
+
+        return {
+            error: false,
+            cDNA_min: v_min, cDNA_max: effective_v_max,
+            ro_min: ro_min, ro_max: ro_max,
+            ideal_cDNA: ideal_cDNA, ideal_ro: 20 - ideal_cDNA
+        };
+    }
+
+    // ========== 単一サンプル画面の処理 ==========
+    function calculateSingle() {
+        const conc = parseFloat(document.getElementById('single_concentration').value);
+        const templateKey = document.getElementById('single_templateType').value;
+        const resArea = document.getElementById('single_resultArea');
+
+        const res = getCalcResult(conc, templateKey);
+        if (!res) {
+            resArea.style.display = 'none';
+            return;
+        }
+
+        resArea.style.display = 'block';
+        if (res.error) {
+            document.getElementById('single_ideal_cdna').innerHTML = `<span class="error">${res.message}</span>`;
+            document.getElementById('single_ideal_h2o').innerHTML = "-";
+            document.getElementById('single_range_cdna').innerHTML = "-";
+            document.getElementById('single_range_h2o').innerHTML = "-";
+        } else {
+            document.getElementById('single_ideal_cdna').innerHTML = res.ideal_cDNA.toFixed(1);
+            document.getElementById('single_ideal_h2o').innerHTML = res.ideal_ro.toFixed(1);
+            document.getElementById('single_range_cdna').innerHTML = `${res.cDNA_min.toFixed(1)} ~ ${res.cDNA_max.toFixed(1)}`;
+            document.getElementById('single_range_h2o').innerHTML = `${res.ro_min.toFixed(1)} ~ ${res.ro_max.toFixed(1)}`;
+        }
+    }
+
+    // ========== 複数サンプル画面の処理 ==========
+    function generateTable() {
+        const tbody = document.getElementById("table-body");
+        for (let i = 1; i <= 8; i++) {
+            for (let j = 1; j <= 8; j++) {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td><strong>${i}.${j}</strong></td>
+                    <td><input type="text" id="dna_${i}_${j}" oninput="updateDnaName(${i}, ${j})" placeholder="DNA名"></td>
+                    <td><input type="text" id="primer_${i}_${j}" oninput="updatePrimerName(${i}, ${j})" placeholder="プライマー"></td>
+                    <td><input type="number" step="0.1" id="conc_${i}_${j}" oninput="calculateRow(${i}, ${j})" placeholder="0.0"></td>
+                    <td class="small-text" id="range_${i}_${j}">-</td>
+                    <td class="ideal" id="ideal_cdna_${i}_${j}">-</td>
+                    <td class="ideal" id="ideal_h2o_${i}_${j}">-</td>
+                `;
+                tbody.appendChild(tr);
+            }
+        }
+    }
+
+    // 解析DNA名の自動コピペ処理
+    function updateDnaName(i, j) {
+        let val = document.getElementById(`dna_${i}_${j}`).value;
+        for (let k = j + 1; k <= 8; k++) {
+            document.getElementById(`dna_${i}_${k}`).value = val;
+        }
+    }
+
+    // プライマー名の自動連番ペースト処理
+    function updatePrimerName(i, j) {
+        let val = document.getElementById(`primer_${i}_${j}`).value;
+        let match = val.match(/^(.*?)(\d+)$/);
+
+        for (let k = j + 1; k <= 8; k++) {
+            if (match) {
+                let base = match[1];
+                let numLength = match[2].length;
+                let num = parseInt(match[2], 10) + (k - j);
+                let paddedNum = num.toString().padStart(numLength, '0');
+                document.getElementById(`primer_${i}_${k}`).value = base + paddedNum;
+            } else {
+                document.getElementById(`primer_${i}_${k}`).value = val;
+            }
+        }
+    }
+
+    function calculateRow(i, j) {
+        const templateKey = document.getElementById('multi_templateType').value;
+        const conc = parseFloat(document.getElementById(`conc_${i}_${j}`).value);
+        const rangeTd = document.getElementById(`range_${i}_${j}`);
+        const idealCdnaTd = document.getElementById(`ideal_cdna_${i}_${j}`);
+        const idealH2oTd = document.getElementById(`ideal_h2o_${i}_${j}`);
+
+        const res = getCalcResult(conc, templateKey);
+        if (!res) {
+            rangeTd.innerHTML = "-"; idealCdnaTd.innerHTML = "-"; idealH2oTd.innerHTML = "-";
+            return;
+        }
+
+        if (res.error) {
+            rangeTd.innerHTML = `<span class="error">${res.message}</span>`;
+            idealCdnaTd.innerHTML = "-"; idealH2oTd.innerHTML = "-";
+        } else {
+            rangeTd.innerHTML = `cDNA: ${res.cDNA_min.toFixed(1)}~${res.cDNA_max.toFixed(1)}<br>H<sub>2</sub>O: ${res.ro_min.toFixed(1)}~${res.ro_max.toFixed(1)}`;
+            idealCdnaTd.innerHTML = res.ideal_cDNA.toFixed(1);
+            idealH2oTd.innerHTML = res.ideal_ro.toFixed(1);
+        }
+    }
+
+    function calculateAll() {
+        for (let i = 1; i <= 8; i++) {
+            for (let j = 1; j <= 8; j++) {
+                calculateRow(i, j);
+            }
+        }
+    }
+
+    function clearAll() {
+        if(confirm("複数サンプルの入力データを全て消去しますか？")) {
+            for (let i = 1; i <= 8; i++) {
+                for (let j = 1; j <= 8; j++) {
+                    document.getElementById(`dna_${i}_${j}`).value = "";
+                    document.getElementById(`primer_${i}_${j}`).value = "";
+                    document.getElementById(`conc_${i}_${j}`).value = "";
+                    calculateRow(i, j);
+                }
+            }
+        }
+    }
+</script>
+
+</body>
+</html>
